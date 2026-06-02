@@ -1,533 +1,412 @@
-# 车载系统项目规划
+# Vehicle Operating System
 
-## 1. 项目目标
+基于正点原子 i.MX6ULL 开发板和 Qt Widgets 实现的车载系统演示工程。系统采用单个 Qt 主程序承载多个功能页面，包含音乐播放、视频播放、灯光控制、传感器显示、地图导航、天气预报、USB 相机和开机动画等功能。
 
-本项目计划基于 正点原子 IMX6ULL 开发板，使用 Qt 开发一个嵌入式 Linux 车载系统演示工程。
+## 1. 整体架构
 
-当前确定的 7 个功能模块如下：
+工程主程序位于：
 
-1. 音乐播放软件
-2. 视频播放软件
-3. 灯光控制软件
-4. 红外、接近距离、环境光强三合一传感器软件
-5. 百度地图软件
-6. 天气预报软件
-7. USB 相机拍照与录像软件
+```text
+apps/launcher/launcher/
+```
 
-这个项目的定位是：
-
-- 基于 Qt 的嵌入式 Linux 应用工程
-- 属于用户层系统应用开发
-- 不是 shell 脚本工程
-- 也不是内核驱动工程
-
-## 2. 整体架构建议
-
-建议采用“主界面 + 多功能页面”的结构来做。
-
-推荐的顶层结构如下：
-
-1. `launcher`
-   - 车载系统主界面
-   - 显示首页和功能入口
-   - 负责切换到 4 个功能模块
-
-2. `music_player`
-   - 音乐列表
-   - 播放、暂停、上一首、下一首
-   - 播放进度显示
-   - 音量调节
-
-3. `video_player`
-   - 视频列表
-   - 播放、暂停、停止
-   - 视频显示区域
-   - 播放进度显示
-
-4. `lighting_control`
-   - 控制 LED 开关
-   - 控制不同亮度
-   - 后续可扩展模式切换
-
-5. `sensor_center`
-   - 显示红外值
-   - 显示接近距离状态
-   - 显示环境光强值
-   - 周期刷新数据
-
-6. `map_center`
-   - 地图显示
-   - 定位信息展示
-   - 路线或位置展示
-
-7. `weather_center`
-   - 天气信息展示
-   - 温度、天气状态、风力等信息展示
-   - 可扩展未来天气显示
-
-8. `camera_center`
-   - USB 相机实时预览
-   - 拍照保存
-   - 录像保存
-
-对于 IMX6ULL 来说，这种拆分方式比较合适。因为它既保留了“车载系统”的整体感，又方便后续逐个模块调试和移植。
-
-## 3. 为什么推荐这样做
-
-IMX6ULL 可以运行 Qt 图形程序，但资源毕竟有限，因此建议采用分模块、逐步集成的方式。
-
-这样做的好处有：
-
-1. 每个功能模块职责清晰
-2. 可以复用你当前目录里已有的例程
-3. 硬件控制与音视频功能互不干扰
-4. 更方便后续在板子上部署和调试
-
-你当前目录里已经有可以复用的内容：
-
-1. `01_led` 可以作为灯光控制的基础
-2. `08_ii2c_ap3216c_sensor` 可以作为传感器中心的基础
-3. 当前这些 Qt 工程的写法和结构，可以直接借来做车载主界面
-
-对于音视频部分，需要特别注意：
-
-1. 板子上的 Qt 是否包含 `Qt Multimedia`
-2. 系统里是否有 `GStreamer`
-3. 板子的音频输出和视频播放链路是否完整
-
-其中视频播放是整个项目里最需要尽早验证的一部分。
-
-## 4. 目录规划
-
-当前建议目录结构如下：
+整体采用“主界面 + 多页面模块”的结构：
 
 ```text
 Vehicle_Operating_System/
   README.md
-  docs/
-  assets/
   apps/
     launcher/
-    music_player/
-    video_player/
-    lighting_control/
-    sensor_center/
-    map_center/
-    weather_center/
-    camera_center/
+      launcher/        Qt 主工程源码
+      video/           测试视频和开机视频素材
 ```
 
-各目录建议用途如下：
+Qt 主程序使用 `QStackedWidget` 管理不同页面，每个功能模块对应一个独立的 QWidget 页面类。主界面负责应用入口展示、页面切换、打开/关闭动画和开机动画调度。
 
-1. `docs`
-   - 存放设计说明
-   - 存放接口说明
-   - 存放部署说明
+核心文件：
 
-2. `assets`
-   - 存放图标
-   - 存放背景图片
-   - 存放测试用音频和视频资源
+```text
+main.cpp                  程序入口
+mainwindow.h/.cpp         主界面、页面切换、应用打开关闭动画
+bootanimationpage.h/.cpp  开机动画页面
+musicpage.h/.cpp          音乐页面
+videopage.h/.cpp          视频页面
+videoplayer.h/.cpp        GStreamer 视频播放封装
+camerapage.h/.cpp         USB 相机预览、拍照、录像
+mappage.h/.cpp            地图、搜索、路线规划
+weatherpage.h/.cpp        天气预报页面
+ap3216c.h/.cpp            AP3216C 传感器读取
+calculator.h/.cpp         计算器页面
+pic.qrc                   图片资源文件
+run_launcher.sh           开发板运行脚本
+board/                    开发板自启动和网络脚本
+```
 
-3. `apps/launcher`
-   - 车载系统主工程
-   - 整个系统的主入口
+部署到开发板后，推荐目录结构：
 
-4. `apps/music_player`
-   - 音乐播放模块
+```text
+/root/launcher
+/root/run_launcher.sh
+/root/fonts/msyh.ttc
+/root/videos/load.mp4
+/etc/init.d/S50network
+/etc/init.d/S98launcher
+```
 
-5. `apps/video_player`
-   - 视频播放模块
+## 2. 各个模块主要实现方法
 
-6. `apps/lighting_control`
-   - 灯光控制模块
+### 主界面与页面动画
 
-7. `apps/sensor_center`
-   - 传感器数据显示模块
+主界面由 `MainWindow` 管理，使用图标入口进入不同应用页面。页面打开和关闭时使用截图覆盖层配合缩放、透明度动画，实现类似手机应用弹出和收回的效果。
 
-8. `apps/map_center`
-   - 地图显示模块
+### 开机动画
 
-9. `apps/weather_center`
-   - 天气显示模块
+开机动画由 `BootAnimationPage` 实现。程序启动后优先播放 `/root/videos/load.mp4`，视频播放使用工程内已有的 `VideoPlayer` / GStreamer appsink 路径。为了适配 i.MX6ULL，开机视频建议转换为：
 
-10. `apps/camera_center`
-   - USB 相机拍照与录像模块
+```text
+H.264 Baseline/Main
+800x480
+25 fps
+yuv420p
+无音频或低码率音频
+```
 
-## 5. 功能规划
+页面底部实现了冰蓝和白色风格的进度条，并使用 `picture/cat.png` 作为装饰元素。进度条在视频首帧出现后同步显示，随开机动画结束一起消失。
 
-### 5.1 主界面 launcher
+### 音乐播放
 
-核心职责：
+音乐模块负责本地音乐列表、播放、暂停、上一首、下一首、进度显示和歌词显示。音频播放依赖开发板系统的音频输出链路，运行前需要确认 ALSA 声卡、音量和音频文件路径正常。
 
-1. 显示系统标题
-2. 显示 7 个功能入口按钮
-3. 点击按钮进入对应模块
-4. 后续可加状态栏、时间显示、简单主题风格
+### 视频播放
 
-建议第一版先实现：
+视频模块使用 GStreamer appsink 方式解码视频帧，再交给 Qt 页面显示。该方式比直接依赖 Qt Multimedia 更容易在当前开发板环境中控制兼容性。
 
-1. 一个首页
-2. 七个大按钮
-3. 七个功能页面占位
-4. 页面之间可以正常切换
+推荐视频格式：
 
-第一版推荐使用单进程多页面方式，也就是一个 Qt 工程里通过 `QStackedWidget` 管理多个页面。
+```text
+H.264 Baseline/Main
+分辨率不高于 800x480
+帧率 25 fps 左右
+像素格式 yuv420p
+```
 
-## 5.2 音乐播放模块
+如果视频播放黑屏，优先检查视频编码格式和开发板 GStreamer 解码插件。
 
-建议第一版实现：
+### 灯光控制
 
-1. 本地音乐文件列表
-2. 选择文件并播放
-3. 播放与暂停
-4. 上一首和下一首
-5. 音量滑块
-6. 当前文件名显示
+灯光模块当前使用开发板 sysfs LED 接口控制开关：
 
-可选实现方式：
+```text
+/sys/class/leds/sys-led/trigger
+/sys/class/leds/sys-led/brightness
+```
 
-1. 优先尝试 `Qt Multimedia`
-2. 如果 Qt 多媒体支持不完整，再考虑 `GStreamer`
+实测当前板载 LED 虽然 `max_brightness` 为 255，但写入不同亮度值后实际亮度不变，因此界面保留为开关控制。如果需要真正 PWM 调光，需要硬件 LED 接到 PWM 输出，并在设备树中改为 `pwm-leds` 或自行通过 PWM sysfs 控制。
 
-板端需要提前确认：
+### 传感器中心
 
-1. Qt 是否带多媒体模块
-2. 根文件系统是否带音频解码能力
-3. ALSA 是否正常
-4. `aplay -l` 是否能看到声卡
+传感器模块基于 AP3216C 三合一传感器，读取环境光、接近距离和红外数据。界面通过定时器周期刷新数据，并使用图形化控件展示当前状态。
 
-## 5.3 视频播放模块
+### USB 相机
 
-建议第一版实现：
+相机模块使用 V4L2 直接访问 USB 摄像头，不依赖 OpenCV。主要功能包括：
 
-1. 本地视频文件列表
-2. 播放、暂停、停止
-3. 视频显示区域
-4. 播放进度显示
+```text
+设备枚举
+YUYV/MJPEG 格式采集
+实时预览
+拍照保存 PNG/JPEG
+AVI 录像保存
+```
 
-板端需要提前确认：
+开发板需要加载 UVC 驱动：
 
-1. Qt 是否支持视频播放
-2. 是否安装了 `GStreamer`
-3. 板子上什么格式能顺畅播放
-4. 当前显示路径是否稳定
+```sh
+modprobe uvcvideo
+```
 
-对于 IMX6ULL 来说，视频是整个项目里风险最高的模块，建议尽早验证。
+常见设备节点为 `/dev/video0` 或 `/dev/video1`，实际使用时以界面枚举结果为准。
 
-## 5.4 灯光控制模块
+### 地图导航
 
-建议第一版实现：
+地图模块使用高德地图 HTTP API 和瓦片地图方案，不依赖 WebEngine。主要功能包括：
 
-1. 灯的开关控制
-2. 不同亮度级别控制
-3. 当前亮度显示
+```text
+地图瓦片加载
+手指拖动地图改变中心坐标
+起始地址和目标地址输入
+地址联想
+路线规划
+路线自动适配缩放
+```
 
-实现思路：
+默认位置设置为河海大学常州新校区附近。地图和路线接口需要开发板能联网，并且高德 API Key 可用。
 
-1. 复用 `01_led` 的基本写法
-2. 如果驱动支持亮度值调节，就写入 brightness
-3. 如果硬件只支持开和关，那就先退化成开关控制
+### 天气预报
 
-需要确认：
+天气模块使用高德 IP 定位和天气接口。默认城市为常州金坛区，支持切换城市、摄氏度/华氏度切换、未来天气卡片、温湿度曲线和时间轴滑动。
 
-1. 板子上 LED 的实际 sysfs 路径
-2. brightness 是否支持多级亮度
+天气图标放在：
 
-## 5.5 传感器中心模块
+```text
+apps/launcher/launcher/picture/
+```
 
-建议第一版实现：
+并通过 `pic.qrc` 加入 Qt 资源。当前使用的天气图标命名包括：
 
-1. 红外数据显示
-2. 接近距离数据显示
-3. 环境光强数据显示
-4. 定时刷新
+```text
+weather_sunny.png
+weather_cloudy.png
+weather_overcast.png
+weather_rain.png
+weather_heavy_rain.png
+weather_snow.png
+weather_thunder.png
+weather_fog.png
+```
 
-实现思路：
+## 3. 开发板外接模块选型的注意事项
 
-1. 复用 `08_ii2c_ap3216c_sensor`
-2. 把底层访问整理成单独类
-3. 界面层通过定时器刷新数据
+### USB 摄像头
 
-后续可扩展：
+建议选择 UVC 免驱 USB 摄像头。购买或更换前重点确认：
 
-1. 阈值告警
-2. 正常/告警状态颜色区分
-3. 数据曲线显示
+```text
+支持 Linux UVC
+支持 YUYV 或 MJPEG
+分辨率不要过高，推荐 640x480 或 800x600
+帧率 15-30 fps
+开发板 USB 供电足够
+```
 
-## 5.6 百度地图模块
+如果摄像头接入后没有 `/dev/video*`，优先检查 `uvcvideo.ko` 是否存在并执行 `modprobe uvcvideo`。
 
-建议第一版实现：
+### LED / 灯光模块
 
-1. 地图显示区域
-2. 固定位置显示或当前位置显示
-3. 基本缩放或刷新功能
+普通 GPIO LED 只能稳定做开关控制，不一定支持亮度调节。若要实现亮度调节，需要选择可 PWM 调光的 LED 模块，并确认：
 
-实现思路建议：
+```text
+LED 正极/负极接法匹配开发板电平
+PWM 引脚没有被其他外设占用
+设备树中对应 PWM 节点已启用
+内核启用了 PWM 或 pwm-leds 支持
+```
 
-1. 如果板子 Qt 环境支持 `Qt WebEngine`，可以考虑通过网页方式加载百度地图
-2. 如果板子不支持 `Qt WebEngine`，则需要考虑轻量 WebView、浏览器内嵌，或者改成简化版位置展示
+### AP3216C 传感器
 
-需要尽早确认：
+AP3216C 使用 I2C 通信。更换传感器或模块时需要确认：
 
-1. 板子上的 Qt 是否支持 WebEngine 或 WebKit
-2. 板子是否能联网
-3. 百度地图页面在当前显示环境中能否正常加载
-4. 是否需要百度地图 API Key
+```text
+I2C 总线编号
+设备地址
+供电电压
+中断脚是否需要使用
+当前内核是否已有对应驱动或是否采用用户态 I2C 读取
+```
 
-注意：
+### 网络
 
-百度地图模块依赖网络和网页引擎能力，在 IMX6ULL 上实现难度会高于普通本地模块，建议先做“可打开地图页面”的版本，再逐步增强交互。
+地图和天气都依赖网络。当前开发板常用静态 IP 配置为：
 
-## 5.7 天气预报模块
+```sh
+ifconfig eth0 192.168.10.2 netmask 255.255.255.0
+route add default gw 192.168.10.1
+echo "nameserver 192.168.10.1" > /etc/resolv.conf
+echo "nameserver 114.114.114.114" >> /etc/resolv.conf
+```
 
-建议第一版实现：
+如果电脑和开发板直连，需要电脑网口设置为同网段地址，例如 `192.168.10.1`。
 
-1. 当前城市天气显示
-2. 当前温度
-3. 天气状态
-4. 风力或湿度等基础信息
+### 屏幕与触摸
 
-实现思路建议：
+本工程按 800x480 触摸屏设计。更换屏幕后需要关注：
 
-1. 通过 HTTP 请求天气接口获取数据
-2. Qt 中解析返回的 JSON 数据
-3. 用定时刷新机制更新天气信息
+```text
+实际分辨率
+linuxfb 显示设备
+触摸设备节点
+Qt evdev 输入参数
+字体大小和页面布局
+```
 
-需要尽早确认：
+## 4. 使用不同外接模块需要修改的地方
 
-1. 板子是否联网
-2. Qt 是否支持网络模块
-3. 选择哪个天气 API
-4. 是否需要申请接口密钥
+### 更换 USB 摄像头
 
-天气模块实现难度低于地图模块，但同样依赖网络环境。
+需要重点检查：
 
-## 5.8 USB 相机模块
-
-建议第一版实现：
-
-1. USB 相机实时画面预览
-2. 拍照并保存为图片文件
-3. 开始录像与停止录像
-4. 显示当前相机状态
-
-实现思路建议：
-
-1. 优先复用 `05_opencv_camera` 的思路
-2. 使用 OpenCV 采集 USB 相机图像
-3. Qt 负责显示图像和响应按钮事件
-4. 拍照时保存当前帧
-5. 录像时通过 `VideoWriter` 保存视频文件
-
-需要尽早确认：
-
-1. 板子是否识别 USB 相机
-2. 是否存在 `/dev/video0` 之类的视频设备节点
-3. OpenCV 是否已经在板子上可用
-4. 当前 Qt 工程是否已经能和 OpenCV 正常链接
-5. USB 相机支持的分辨率和帧率是否满足需求
-
-建议在板子上验证：
-
-```bash
+```sh
 ls /dev/video*
 v4l2-ctl --list-devices
 v4l2-ctl --list-formats-ext -d /dev/video0
 ```
 
-这个模块的复杂度通常低于地图模块，但高于简单的 LED 和传感器模块。
+如果设备节点变成 `/dev/video1` 或其他编号，程序界面通常可以自动枚举；如果格式不支持，需要在 `camerapage.cpp` 中调整采集格式、分辨率或帧率。
 
-## 6. 开发顺序建议
+### 更换灯光模块
 
-不建议一开始就先死磕音视频最终界面，推荐按下面顺序推进：
+如果仍然是 GPIO LED，只需要修改 sysfs 路径：
 
-1. 先做车载系统主界面框架
-2. 再接入灯光控制模块
-3. 再接入传感器中心模块
-4. 再接入 USB 相机模块
-5. 然后验证音乐播放
-6. 再验证天气模块
-7. 再评估和接入百度地图模块
-8. 最后验证视频播放
-9. 最后统一美化界面
-
-这样安排的原因是：
-
-1. 灯光和传感器模块风险低，能先快速跑通
-2. USB 相机模块可以利用现有例程较快验证
-3. 天气和地图依赖网络环境
-4. 音视频依赖系统环境，变量更多
-5. 先把整体框架立起来，后面集成更顺
-
-## 7. 技术路线建议
-
-### 方案 A：单 Qt 工程，多页面结构
-
-做法：
-
-1. 使用 `QStackedWidget` 管理主内容区
-2. 每个功能模块对应一个页面
-3. 共用一个主界面和导航逻辑
-
-优点：
-
-1. 部署简单
-2. 切换方便
-3. 更适合做课程设计或演示项目
-
-当前阶段推荐采用这个方案。
-
-### 方案 B：多个独立 Qt 程序
-
-做法：
-
-1. 每个功能一个独立可执行程序
-2. 主界面负责启动子程序
-
-优点：
-
-1. 模块隔离更清晰
-2. 某个模块崩了不一定影响其他模块
-
-缺点：
-
-1. 部署更麻烦
-2. 进程管理更复杂
-3. 对当前阶段来说没有方案 A 顺手
-
-当前阶段不推荐优先用这个方案。
-
-## 8. 需要尽早确认的依赖
-
-在真正开始实现前，建议尽早在 IMX6ULL 板子上确认这些内容：
-
-1. Qt 版本
-2. 是否支持 Qt Widgets
-3. 是否支持 Qt Multimedia
-4. 是否安装 GStreamer
-5. 音频输出是否正常
-6. 视频输出是否正常
-7. LED 的 sysfs 路径
-8. AP3216C 当前的设备访问方式
-9. 板子是否能联网
-10. Qt 是否支持网络访问
-11. Qt 是否支持 WebEngine 或其他网页显示能力
-12. 板子是否识别 USB 相机
-13. OpenCV 是否可用
-
-后续建议在板子上验证的命令：
-
-```bash
-qmake -v
-ls /usr/lib/libQt5Multimedia.so*
-ls /usr/lib/libQt5SerialPort.so*
-gst-launch-1.0 --version
-aplay -l
-ls /sys/class/leds
-ls /dev
-ping www.baidu.com
-ls /dev/video*
+```text
+/sys/class/leds/xxx/brightness
+/sys/class/leds/xxx/trigger
 ```
 
-## 9. 分阶段计划
+如果换成 PWM 调光模块，需要新增 PWM 控制逻辑，或修改设备树将 LED 绑定为 `pwm-leds`，再由程序写入新的亮度接口。
 
-### 第一阶段：搭建项目骨架
+### 更换传感器
 
-目标：
+如果不是 AP3216C，需要修改：
 
-1. 创建 `Vehicle_Operating_System` 工程结构
-2. 搭建主界面窗口
-3. 建立 7 个占位页面
-4. 实现页面切换
+```text
+ap3216c.h/.cpp
+传感器初始化流程
+数据读取寄存器
+单位换算
+界面显示字段
+```
 
-预期结果：
+不同 I2C 设备还需要确认 `/dev/i2c-*` 节点和设备地址。
 
-1. 先得到一个能运行的车载系统外壳
+### 更换地图或天气 API
 
-### 第二阶段：接入硬件功能
+当前地图和天气使用高德接口。如果换成其他服务，需要修改：
 
-目标：
+```text
+mappage.cpp      地址搜索、路线规划、瓦片 URL、坐标系处理
+weatherpage.cpp  城市定位、天气 JSON 解析、天气图标映射
+```
 
-1. 接入灯光控制
-2. 接入 AP3216C 传感器显示
-3. 接入 USB 相机预览与拍照基础能力
+高德地图使用 GCJ-02 坐标系。如果换成 OpenStreetMap 或其他 WGS-84 坐标服务，需要特别注意坐标偏移问题。
 
-预期结果：
+### 更换屏幕分辨率
 
-1. 先把三个硬件相关模块在板子上跑通
+如果不是 800x480，需要检查：
 
-### 第三阶段：接入网络信息模块
+```text
+mainwindow.cpp
+mappage.cpp
+weatherpage.cpp
+bootanimationpage.cpp
+各页面固定宽高、字体大小、图片缩放逻辑
+```
 
-目标：
+建议优先将固定尺寸改为基于 `width()`、`height()` 的比例布局。
 
-1. 接入天气预报模块
-2. 评估百度地图模块可行性
-3. 确认网络访问链路
+## 5. 源码编译相关
 
-预期结果：
+### 开发环境
 
-1. 至少先完成天气模块
-2. 明确地图模块采用什么技术路线
+本工程面向 Qt 5.12.9 和 i.MX6ULL 交叉编译环境。桌面端可用于语法检查和界面预览，最终运行环境为 ARM Linux 开发板。
 
-### 第四阶段：验证多媒体链路
+主工程文件：
 
-目标：
+```text
+apps/launcher/launcher/launcher.pro
+```
 
-1. 验证音频播放方案
-2. 验证视频播放方案
-3. 确定最终采用的多媒体后端
+### 桌面端检查编译
 
-预期结果：
+在 Windows Qt MinGW 环境下可执行：
 
-1. 明确音视频模块最终怎么实现
+```powershell
+cd C:\Users\meizihuang123\Desktop\03\Vehicle_Operating_System\apps\launcher
+mkdir build-desktop-check
+cd build-desktop-check
+D:\Qt\5.12.9\mingw73_32\bin\qmake.exe ..\launcher\launcher.pro
+D:\Qt\Tools\mingw730_32\bin\mingw32-make.exe
+```
 
-### 第五阶段：界面完善与部署整理
+桌面端主要用于检查 C++ 和 Qt 代码是否能正常编译，不代表所有硬件功能都能在电脑上运行。
 
-目标：
+### 开发板交叉编译
 
-1. 美化整体界面
-2. 补充图标和状态显示
-3. 整理部署文件
+在 Ubuntu 虚拟机中使用 ARM Qt 的 qmake 编译，示例：
 
-预期结果：
+```sh
+cd ~/build-launcher-Arm_Qt5_12_9-Debug
+/path/to/arm-qt/bin/qmake /path/to/Vehicle_Operating_System/apps/launcher/launcher/launcher.pro
+make
+```
 
-1. 得到一个完整的课程设计级别的车载系统演示工程
+实际 qmake 路径以自己的 Qt 交叉编译环境为准。
 
-## 10. 当前最推荐的下一步
+### 运行脚本
 
-下一步建议直接做：
+开发板运行脚本为：
 
-1. 在 `Vehicle_Operating_System/apps/launcher` 下创建 Qt Widgets 主工程
-2. 用 `QStackedWidget` 搭建主界面
-3. 添加 7 个入口按钮：
-   - 音乐播放
-   - 视频播放
-   - 灯光控制
-   - 传感器中心
-   - 百度地图
-   - 天气预报
-   - 相机中心
-4. 先把 7 个页面占位做出来
+```text
+apps/launcher/launcher/run_launcher.sh
+```
 
-完成这一步以后，再把 `01_led` 和 `08_ii2c_ap3216c_sensor` 的代码逐步整合进去。
+部署后建议放到：
 
-## 11. 当前状态
+```text
+/root/run_launcher.sh
+```
 
-已完成：
+并赋予执行权限：
 
-1. 创建 `Vehicle_Operating_System` 目录
-2. 创建模块子目录
-3. 输出第一版项目规划文档
+```sh
+chmod 755 /root/run_launcher.sh
+```
 
-待完成：
+脚本中需要设置 Qt 运行环境，例如：
 
-1. 创建真正的 Qt 主工程
-2. 设计主界面
-3. 接入灯光模块
-4. 接入传感器模块
-5. 接入 USB 相机模块
-6. 验证天气接口与网络环境
-7. 评估百度地图显示方案
-8. 验证音频环境
-9. 验证视频环境
+```sh
+QT_QPA_PLATFORM=linuxfb
+QT_QPA_FONTDIR=/root/fonts
+LD_LIBRARY_PATH=/lib:/usr/lib
+```
+
+为了正常显示中文，建议将微软雅黑或其他中文字体放到：
+
+```text
+/root/fonts/msyh.ttc
+```
+
+### 开机自启动
+
+工程提供开发板脚本：
+
+```text
+apps/launcher/launcher/board/S50network
+apps/launcher/launcher/board/S98launcher
+apps/launcher/launcher/board/S99timesync
+```
+
+复制到开发板：
+
+```sh
+cp S50network /etc/init.d/S50network
+cp S98launcher /etc/init.d/S98launcher
+chmod 755 /etc/init.d/S50network
+chmod 755 /etc/init.d/S98launcher
+```
+
+如果当前系统的 `/etc/init.d/rcS` 不会自动扫描 `/etc/init.d/Sxx` 脚本，需要在 `rcS` 中手动加入：
+
+```sh
+[ -x /etc/init.d/S50network ] && /etc/init.d/S50network start
+[ -x /etc/init.d/S98launcher ] && /etc/init.d/S98launcher start
+```
+
+### 常用排查命令
+
+```sh
+ps | grep launcher
+cat /var/log/launcher.log
+ls /dev/video*
+cat /sys/class/leds/sys-led/brightness
+ifconfig eth0
+route -n
+cat /etc/resolv.conf
+```
+
+如果 Qt 程序开机后文字不显示，优先检查字体路径：
+
+```sh
+ls -l /root/fonts
+grep QT_QPA_FONTDIR /root/run_launcher.sh
+cat /var/log/launcher.log
+```
