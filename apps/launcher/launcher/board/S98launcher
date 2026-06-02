@@ -1,0 +1,77 @@
+#!/bin/sh
+# BusyBox init.d script for Vehicle Operating System launcher.
+
+APP_DIR=/root
+RUN_SCRIPT="$APP_DIR/run_launcher.sh"
+PID_FILE=/var/run/launcher.pid
+LOG_FILE=/var/log/launcher.log
+
+start() {
+    if [ -f "$PID_FILE" ]; then
+        pid=$(cat "$PID_FILE" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            echo "launcher already running: $pid"
+            return 0
+        fi
+        rm -f "$PID_FILE"
+    fi
+
+    if [ ! -x "$RUN_SCRIPT" ]; then
+        echo "launcher start failed: $RUN_SCRIPT not executable"
+        return 1
+    fi
+
+    mkdir -p /var/run /var/log
+    echo "starting launcher..."
+    cd "$APP_DIR" || return 1
+    (
+        # Give framebuffer, input devices, fonts and mdev-created nodes a little
+        # time to settle. Starting Qt too early can make text metrics/layout wrong.
+        i=0
+        while [ "$i" -lt 20 ]; do
+            [ -e /dev/fb0 ] && [ -d /sys/class/input ] && break
+            i=$((i + 1))
+            sleep 0.2
+        done
+        sleep 1
+        exec "$RUN_SCRIPT"
+    ) >> "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    return 0
+}
+
+stop() {
+    echo "stopping launcher..."
+    if [ -f "$PID_FILE" ]; then
+        pid=$(cat "$PID_FILE" 2>/dev/null)
+        if [ -n "$pid" ]; then
+            kill "$pid" 2>/dev/null
+            sleep 1
+            kill -9 "$pid" 2>/dev/null
+        fi
+        rm -f "$PID_FILE"
+    fi
+
+    killall -q launcher 2>/dev/null
+    killall -q mplayer 2>/dev/null
+    return 0
+}
+
+case "$1" in
+start)
+    start
+    ;;
+stop)
+    stop
+    ;;
+restart)
+    stop
+    start
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit $?

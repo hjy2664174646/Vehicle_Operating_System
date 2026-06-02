@@ -1,0 +1,16 @@
+build-*/
+debug/
+release/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.pro.user
+*.qmake.stash
+Makefile
+Makefile.Debug
+Makefile.Release
+object_script.*
+.vscode/

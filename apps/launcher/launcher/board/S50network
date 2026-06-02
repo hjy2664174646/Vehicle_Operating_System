@@ -1,0 +1,72 @@
+#!/bin/sh
+# 开机自动配置 eth0 静态 IP（与电脑直连 192.168.10.x）
+# 须在 S99timesync 之前执行（S50 < S99）
+
+# ---------- 按你的网线/电脑网口修改 ----------
+ETH_DEV=eth0
+BOARD_IP=192.168.10.2
+NETMASK=255.255.255.0
+PREFIX=24
+GATEWAY=192.168.10.1
+DNS_PC=192.168.10.1
+DNS_PUBLIC=114.114.114.114
+# -------------------------------------------
+
+setup_eth0() {
+    echo "network: bring up $ETH_DEV ..."
+
+    ip link set "$ETH_DEV" up 2>/dev/null \
+        || ifconfig "$ETH_DEV" up 2>/dev/null
+
+    # 避免重复添加地址；无 ip 命令时仅走 ifconfig
+    if command -v ip >/dev/null 2>&1; then
+        ip addr flush dev "$ETH_DEV" 2>/dev/null
+        ip addr add "${BOARD_IP}/${PREFIX}" dev "$ETH_DEV" 2>/dev/null
+    fi
+
+    ifconfig "$ETH_DEV" "$BOARD_IP" netmask "$NETMASK" 2>/dev/null
+
+    if command -v ip >/dev/null 2>&1; then
+        ip route replace default via "$GATEWAY" dev "$ETH_DEV" 2>/dev/null \
+            || ip route add default via "$GATEWAY" dev "$ETH_DEV" 2>/dev/null
+    fi
+    route add default gw "$GATEWAY" 2>/dev/null
+
+    {
+        echo "nameserver $DNS_PC"
+        echo "nameserver $DNS_PUBLIC"
+    } > /etc/resolv.conf
+
+    sleep 1
+    ip link show "$ETH_DEV" 2>/dev/null || ifconfig "$ETH_DEV"
+    ifconfig "$ETH_DEV" 2>/dev/null
+    echo "network: default route"
+    route -n 2>/dev/null || ip route 2>/dev/null
+}
+
+teardown_eth0() {
+    if command -v ip >/dev/null 2>&1; then
+        ip route del default via "$GATEWAY" dev "$ETH_DEV" 2>/dev/null
+        ip addr flush dev "$ETH_DEV" 2>/dev/null
+        ip link set "$ETH_DEV" down 2>/dev/null
+    fi
+}
+
+case "$1" in
+start)
+    setup_eth0
+    ;;
+stop)
+    teardown_eth0
+    ;;
+restart)
+    "$0" stop
+    "$0" start
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit 0

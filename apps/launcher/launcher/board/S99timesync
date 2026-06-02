@@ -1,0 +1,66 @@
+#!/bin/sh
+# 开机自动校时（BusyBox init.d 风格）
+# 安装：见同目录 README.txt
+
+export TZ=CST-8
+
+wait_network() {
+    # S50network 应先于本脚本；此处再等网关/外网可达
+    i=0
+    while [ "$i" -lt 15 ]; do
+        ping -c 1 -W 2 192.168.10.1 >/dev/null 2>&1 && return 0
+        ping -c 1 -W 2 114.114.114.114 >/dev/null 2>&1 && return 0
+        i=$((i + 1))
+        sleep 1
+    done
+    return 1
+}
+
+sync_ntp() {
+    if command -v ntpdate >/dev/null 2>&1; then
+        ntpdate -u -t 10 cn.pool.ntp.org 2>/dev/null \
+            || ntpdate -u -t 10 ntp.aliyun.com 2>/dev/null \
+            || ntpdate -u -t 10 pool.ntp.org 2>/dev/null
+    elif command -v busybox >/dev/null 2>&1; then
+        busybox ntpd -q -p cn.pool.ntp.org 2>/dev/null \
+            || busybox ntpd -q -p pool.ntp.org 2>/dev/null
+    else
+        return 1
+    fi
+}
+
+case "$1" in
+start)
+    # 有硬件 RTC 时先载入，上电瞬间不至于显示 1970
+    if command -v hwclock >/dev/null 2>&1; then
+        hwclock -s 2>/dev/null
+    fi
+
+    year=$(date +%Y 2>/dev/null) || year=1970
+    # 仅当时间明显不对（如 1970）才走网络 NTP，避免每次开机多等十几秒
+    if [ "$year" -lt 2020 ]; then
+        wait_network && sync_ntp
+    fi
+    # 若希望每次开机都与 NTP 对齐（更准、略慢），取消下面两行注释：
+    # wait_network && sync_ntp
+
+    if command -v hwclock >/dev/null 2>&1; then
+        hwclock -w 2>/dev/null
+    fi
+    ;;
+stop)
+    if command -v hwclock >/dev/null 2>&1; then
+        hwclock -w 2>/dev/null
+    fi
+    ;;
+restart)
+    "$0" stop
+    "$0" start
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit 0

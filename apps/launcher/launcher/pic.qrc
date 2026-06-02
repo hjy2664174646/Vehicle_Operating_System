@@ -1,0 +1,30 @@
+<RCC>
+    <qresource prefix="/">
+        <file>picture/background.png</file>
+        <file>picture/music.png</file>
+        <file>picture/vedio.png</file>
+        <file>picture/light.png</file>
+        <file>picture/lux.png</file>
+        <file>picture/sensor.png</file>
+        <file>picture/map.png</file>
+        <file>picture/weather.png</file>
+        <file>picture/weather_cloudy.png</file>
+        <file>picture/weather_fog.png</file>
+        <file>picture/weather_heavy_rain.png</file>
+        <file>picture/weather_overcast.png</file>
+        <file>picture/weather_rain.png</file>
+        <file>picture/weather_snow.png</file>
+        <file>picture/weather_sunny.png</file>
+        <file>picture/weather_thunder.png</file>
+        <file>picture/camera.png</file>
+        <file>picture/cat.png</file>
+        <file>picture/computer.png</file>
+        <file>picture/play.png</file>
+        <file>picture/stop.png</file>
+        <file>picture/last.png</file>
+        <file>picture/next.png</file>
+        <file>picture/list.png</file>
+        <file>picture/max.png</file>
+        <file>picture/exit_max.png</file>
+    </qresource>
+</RCC>
