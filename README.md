@@ -1,5 +1,9 @@
 # Vehicle Operating System
 
+## 视频演示
+
+[哔哩哔哩视频演示](https://www.bilibili.com/video/BV1qEVr6EESC/?spm_id_from=333.1387.homepage.video_card.click&vd_source=c4255ff6c35c208cd506fe334d8df715)
+
 基于正点原子 i.MX6ULL 开发板和 Qt Widgets 实现的车载系统演示工程。系统采用单个 Qt 主程序承载多个功能页面，包含音乐播放、视频播放、灯光控制、传感器显示、地图导航、天气预报、USB 相机和开机动画等功能。
 
 ## 1. 整体架构
